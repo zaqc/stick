@@ -13,8 +13,52 @@ module eth_send(
 	output					o_vld,
 	input						i_rdy,
 	output					o_eop,
-	output					o_sop
+	output					o_sop,
+	
+	input						i_ch_clk,	// channel data clock 20 MHz
+	input		[31:0]		i_ch_data,
+	input						i_ch_vld,
+	input		[9:0]			i_ch_cntr,
+	input						i_ch_complete,
+	
+	input						i_msync_n	// Main Sync
 );
+
+wire			[9:0]			wr_addr;
+assign wr_addr = {3'd0, i_ch_cntr[9:8], i_ch_cntr[4:0]};
+
+reg			[9:0]			rd_addr;
+wire			[31:0]		rd_data;
+
+/*
+reg			[31:0]		tmp_data;
+reg			[9:0]			tmp_addr;
+always @ (posedge i_ch_clk)
+	tmp_data <= tmp_data + 32'd1;
+	
+always @ (posedge i_ch_clk)
+	tmp_addr <= tmp_addr + 10'd1;
+*/
+
+udp_pkt_data udp_pkt_data_unit(
+	.wrclock(i_ch_clk),
+	.wren(i_ch_vld),
+	.wraddress(wr_addr),
+	.data(i_ch_data),
+	
+	.rdclock(clk),
+	.rdaddress(rd_addr),
+	.q(rd_data)
+);
+
+always @ (posedge clk or negedge rst_n)
+	if(~rst_n)
+		rd_addr <= 10'd0;
+	else
+		if(send_step >= 16'h0B)
+			rd_addr <= rd_addr + 10'd1;
+		else
+			rd_addr <= 10'd0;
 
 //============================================================================
 // GLOBAL PARAMETERS
@@ -117,15 +161,15 @@ reg			[0:0]			ff_eop;
 always
 	case(i_pkt_type)
 		ARP_REQ_PKT_TYPE, ARP_RESP_PKT_TYPE: begin
-			ff_vld = send_step >= 8'h01 && send_step <= 8'h0B ? 1'b1 : 1'b0;
-			ff_sop = send_step == 8'h01 ? 1'b1 : 1'b0;
-			ff_eop = send_step == 8'h0B ? 1'b1 : 1'b0;
+			ff_vld = send_step >= 16'h01 && send_step <= 16'h0B ? 1'b1 : 1'b0;
+			ff_sop = send_step == 16'h01 ? 1'b1 : 1'b0;
+			ff_eop = send_step == 16'h0B ? 1'b1 : 1'b0;
 		end
 		UDP_PKT_TYPE: begin
-			reg	[7:0]		len;
-			len = 8'h0B + data_len[15:2];
-			ff_vld = send_step >= 8'h01 && send_step <= len ? 1'b1 : 1'b0;;
-			ff_sop = send_step == 8'h01 ? 1'b1 : 1'b0;
+			reg	[15:0]		len;
+			len = 16'h0B + data_len[15:2];
+			ff_vld = send_step >= 16'h01 && send_step <= len ? 1'b1 : 1'b0;;
+			ff_sop = send_step == 16'h01 ? 1'b1 : 1'b0;
 			ff_eop = send_step == len ? 1'b1 : 1'b0;
 		end
 		default: begin
@@ -139,64 +183,89 @@ assign o_vld = ff_vld;
 assign o_sop = ff_sop;
 assign o_eop = ff_eop;
 
-reg			[7:0]			send_step;
-reg			[25:0]		send_delay;
+reg			[15:0]		send_step;
+//reg			[25:0]		send_delay;
+
+reg			[0:0]			prev_msync_n;
+always @ (posedge clk) prev_msync_n = i_msync_n;
 
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n)
-		send_step <= 8'd0;
+		send_step <= 16'd0;
+	else
+		if(|{send_step}) begin
+			if(i_rdy)			
+				send_step <= ff_eop ? 16'd0 : send_step + 16'd1;
+		end
+		else
+			if((prev_msync_n != i_msync_n && ~i_msync_n) || 
+						i_pkt_type == ARP_REQ_PKT_TYPE || 
+						i_pkt_type == ARP_RESP_PKT_TYPE)
+				send_step <= 16'd1;
+
+/*
+always @ (posedge clk or negedge rst_n)
+	if(~rst_n)
+		send_step <= 16'd0;
 	else begin
 		if(~&{send_step}) begin
 			if(i_rdy)
-				send_step <= send_step + 8'd1;
+				send_step <= send_step + 16'd1;
 		end
 		else begin
 			if(~&{send_delay})
 				send_delay <= send_delay + 26'd1;
 			else begin
 				send_delay <= 26'd0;
-				send_step <= 8'd0;
+				send_step <= 16'd0;
 			end
 		end
 	end
-	
+*/
+
 reg			[31:0]		data;
 assign o_data = data;
 
 always begin
-	case(send_step)
-		8'h01: data = {16'd0, dst_mac[47:32]};
-		8'h02: data = dst_mac[31:0];
-		8'h03: data = src_mac[47:16];		
-		default: data = 32'd0;
-	endcase
+	data = 32'd0;
 	
 	if(i_pkt_type == ARP_REQ_PKT_TYPE || i_pkt_type == ARP_RESP_PKT_TYPE)
 		case(send_step)
-			8'h04: data = {src_mac[15:0], 16'h0806};	// packet type = ARP (16'h0806)
-			8'h05: data = arp_header[63:32];
-			8'h06: data = arp_header[31:0];
-			8'h07: data = SHA[47:16];
-			8'h08: data = {SHA[15:0], SPA[31:16]};
-			8'h09: data = {SPA[15:0], THA[47:32]};
-			8'h0A: data = THA[31:0];
-			8'h0B: data = TPA[31:0];
+			16'h01: data = {16'd0, dst_mac[47:32]};
+			16'h02: data = dst_mac[31:0];
+			16'h03: data = src_mac[47:16];		
+			16'h04: data = {src_mac[15:0], 16'h0806};	// packet type = ARP (16'h0806)
+			16'h05: data = arp_header[63:32];
+			16'h06: data = arp_header[31:0];
+			16'h07: data = SHA[47:16];
+			16'h08: data = {SHA[15:0], SPA[31:16]};
+			16'h09: data = {SPA[15:0], THA[47:32]};
+			16'h0A: data = THA[31:0];
+			16'h0B: data = TPA[31:0];
+			default: data = 32'd0;
 		endcase
 	else
 		if(i_pkt_type == UDP_PKT_TYPE)
 			case(send_step)
-				8'h04: data = {src_mac[15:0], 16'h0800};	// packet type = IPv4 (16'h0800)
-				8'h05: data = ip_hdr1;
-				8'h06: data = ip_hdr2;
-				8'h07: data = ip_hdr3;
-				8'h08: data = src_ip;
-				8'h09: data = dst_ip;
-				8'h0A: data = {src_port, dst_port};
-				8'h0B: data = {udp_length, 16'd0};			// udp crc = 0
+				16'h00: data = 32'd0;
+				16'h01: data = {16'd0, dst_mac[47:32]};
+				16'h02: data = dst_mac[31:0];
+				16'h03: data = src_mac[47:16];		
+				16'h04: data = {src_mac[15:0], 16'h0800};	// packet type = IPv4 (16'h0800)
+				16'h05: data = ip_hdr1;
+				16'h06: data = ip_hdr2;
+				16'h07: data = ip_hdr3;
+				16'h08: data = src_ip;
+				16'h09: data = dst_ip;
+				16'h0A: data = {src_port, dst_port};
+				16'h0B: data = {udp_length, 16'd0};			// udp crc = 0
+				default: data = rd_data;
 			endcase
+		else
+			data = 32'd0;
 end
 
-parameter	[15:0]	data_len = 16'd128;
+parameter	[15:0]	data_len = 16'd1024;
 
 wire			[15:0]	udp_length;
 assign udp_length = data_len + 16'd8;

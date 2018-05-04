@@ -187,10 +187,13 @@ eth_top eth_top_unit_a(
 	
 	.o_phy_rst(phy_rst),
 	
+	.i_ch_clk(clk20),
 	.i_ch_data(data_out[0]),
 	.i_ch_vld(data_valid[0]),
-	.i_ch_cntr(data_cntr[0]),
+	.i_ch_cntr(data_count[0]),
 	.i_ch_complete(chan_cmpl[0]),
+	
+	.i_msync_n(msync_n),
 	
 	.o_led(led)	// for debug purpose
 );
@@ -461,7 +464,7 @@ data_blk dat_x4_3(
 //leds test
 reg [31:0] test_counter;
 //assign led = test_counter[26:23];
-assign msync_n = test_counter[24];
+assign msync_n = test_counter[20];
 
 always@(posedge sysclk)
 begin

@@ -19,10 +19,13 @@ module eth_top(
 	
 	output				o_phy_rst,
 	
+	input					i_ch_clk,
 	input		[31:0]	i_ch_data,
 	input					i_ch_vld,
 	input		[9:0]		i_ch_cntr,
 	input					i_ch_complete,
+	
+	input					i_msync_n,
 	
 	output	[3:0]		o_led	// for debug purpose
 );
@@ -329,7 +332,15 @@ eth_send eth_send_unit(
 	.o_vld(tx_vld),
 	.i_rdy(tx_rdy),
 	.o_sop(tx_sop),
-	.o_eop(tx_eop)
+	.o_eop(tx_eop),
+	
+	.i_ch_clk(i_ch_clk),
+	.i_ch_data(i_ch_data),
+	.i_ch_vld(i_ch_vld),
+	.i_ch_cntr(i_ch_cntr),
+	.i_ch_complete(i_ch_complete),
+	
+	.i_msync_n(i_msync_n)
 );
 
 //----------------------------------------------------------------------------
