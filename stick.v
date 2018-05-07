@@ -464,7 +464,7 @@ data_blk dat_x4_3(
 //leds test
 reg [31:0] test_counter;
 //assign led = test_counter[26:23];
-assign msync_n = test_counter[20];
+assign msync_n = test_counter[24];
 
 always@(posedge sysclk)
 begin

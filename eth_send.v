@@ -15,6 +15,8 @@ module eth_send(
 	output					o_eop,
 	output					o_sop,
 	
+	output					o_pkt_complite,
+	
 	input						i_ch_clk,	// channel data clock 20 MHz
 	input		[31:0]		i_ch_data,
 	input						i_ch_vld,
@@ -51,14 +53,18 @@ udp_pkt_data udp_pkt_data_unit(
 	.q(rd_data)
 );
 
+wire							udp_data_stream;
+assign udp_data_stream = send_step >= 16'h0B ? 1'b1 : 1'b0; 
+
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n)
 		rd_addr <= 10'd0;
 	else
-		if(send_step >= 16'h0B)
+		if(udp_data_stream)
 			rd_addr <= rd_addr + 10'd1;
 		else
-			rd_addr <= 10'd0;
+			if(prev_msync_n != i_msync_n && ~i_msync_n && i_pkt_type == UDP_PKT_TYPE)
+				rd_addr <= 10'd0;
 
 //============================================================================
 // GLOBAL PARAMETERS
@@ -87,29 +93,37 @@ assign arp_header = {ARP_HTYPE, ARP_PTYPE, ARP_HLEN, ARP_PLEN, {14'd0, i_operati
 // UDP PARAMETERS
 //============================================================================
 
-parameter	[3:0]		ip_header_ver = 4'h4;		// 4 - for IPv4
-parameter	[3:0]		ip_header_size = 4'h5;		// size in 32bit word's
-parameter	[7:0]		ip_DSCP_ECN = 8'h00;			// ?
-wire			[15:0]	ip_pkt_size;
-assign  ip_pkt_size = data_len + 16'h001C;	// 16'h002E size of UDP packet
-wire			[31:0]	ip_hdr1;
+wire			[15:0]		fragment_size;
+assign fragment_size = udp_data_len - udp_sended;
+
+wire							fragment_flag;
+assign fragment_flag = fragment_size < 16'd1400 ? 1'b0 : 1'b1;
+
+parameter	[3:0]			ip_header_ver = 4'h4;		// 4 - for IPv4
+parameter	[3:0]			ip_header_size = 4'h5;		// size in 32bit word's
+parameter	[7:0]			ip_DSCP_ECN = 8'h00;			// ?
+wire			[15:0]		ip_pkt_size;
+assign  ip_pkt_size = (fragment_flag ? 16'd1400 : fragment_size) + 16'h001C;	// 16'h002E size of UDP packet
+wire			[31:0]		ip_hdr1;
 assign ip_hdr1 = {ip_header_ver, ip_header_size, ip_DSCP_ECN, ip_pkt_size};
 
-parameter	[15:0]	ip_pkt_id = 16'h0;			// pkt id
-parameter	[2:0]		ip_pkt_flags = 3'h0;			// pkt flags
-reg			[12:0]	ip_pkt_offset = 13'h0;		// pkt offset
-wire			[31:0]	ip_hdr2;
+parameter	[15:0]		ip_pkt_id = 16'h0;			// pkt id
+wire			[2:0]			ip_pkt_flags;					// pkt flags
+assign ip_pkt_flags = {2'd0, fragment_flag};
+wire			[12:0]		ip_pkt_offset;					// pkt offset
+assign ip_pkt_offset = {3'd0, udp_sended[15:3]};
+wire			[31:0]		ip_hdr2;
 assign ip_hdr2 = {ip_pkt_id, ip_pkt_flags, ip_pkt_offset};
 
-parameter	[7:0]		ip_pkt_TTL = 8'hC8;			// pkt TTL
-parameter	[7:0]		ip_pkt_type = 8'd17;			// pkt UDP == 17
-wire			[15:0]	ip_pkt_CRC;						// pkt flags
-wire			[31:0]	tmp_crc;
+parameter	[7:0]			ip_pkt_TTL = 8'hC8;			// pkt TTL
+parameter	[7:0]			ip_pkt_type = 8'd17;			// pkt UDP == 17
+wire			[15:0]		ip_pkt_CRC;						// pkt flags
+wire			[31:0]		tmp_crc;
 assign tmp_crc = ip_hdr1[31:16] + ip_hdr1[15:0] +
 	ip_hdr2[31:16] + ip_hdr2[15:0] + ip_hdr3[31:16] + // ip_hdr3[15:0] +
 	src_ip[31:16] + src_ip[15:0] + dst_ip[31:16] + dst_ip[15:0];
 assign ip_pkt_CRC = ~(tmp_crc[31:16] + tmp_crc[15:0]);
-wire			[31:0]	ip_hdr3;	
+wire			[31:0]		ip_hdr3;	
 assign ip_hdr3 = {ip_pkt_TTL, ip_pkt_type, ip_pkt_CRC};
 
 //============================================================================
@@ -158,6 +172,14 @@ reg			[0:0]			ff_vld;
 reg			[0:0]			ff_sop;
 reg			[0:0]			ff_eop;
 
+reg			[15:0]		udp_frame_size;
+always @ (posedge clk or negedge rst_n)
+	if(~rst_n)
+		udp_frame_size <= 16'd1400;
+	else
+		if(i_pkt_type == UDP_PKT_TYPE && ff_sop)
+			udp_frame_size <= fragment_flag ? 16'd1400 : fragment_size;
+
 always
 	case(i_pkt_type)
 		ARP_REQ_PKT_TYPE, ARP_RESP_PKT_TYPE: begin
@@ -167,7 +189,7 @@ always
 		end
 		UDP_PKT_TYPE: begin
 			reg	[15:0]		len;
-			len = 16'h0B + data_len[15:2];
+			len = 16'h0B + udp_frame_size[15:2]; //udp_data_len[15:2];
 			ff_vld = send_step >= 16'h01 && send_step <= len ? 1'b1 : 1'b0;;
 			ff_sop = send_step == 16'h01 ? 1'b1 : 1'b0;
 			ff_eop = send_step == len ? 1'b1 : 1'b0;
@@ -183,11 +205,30 @@ assign o_vld = ff_vld;
 assign o_sop = ff_sop;
 assign o_eop = ff_eop;
 
+// !TODO: add code for UDP_PKT_TYPE
+assign o_pkt_complite = ff_eop && (i_pkt_type == ARP_REQ_PKT_TYPE || i_pkt_type == ARP_RESP_PKT_TYPE) ? 1'b1 : 1'b0;
+
 reg			[15:0]		send_step;
 //reg			[25:0]		send_delay;
 
 reg			[0:0]			prev_msync_n;
 always @ (posedge clk) prev_msync_n = i_msync_n;
+
+
+reg			[15:0]		udp_sended;
+always @ (posedge clk or negedge rst_n)
+	if(~rst_n)
+		udp_sended <= 16'd0;
+	else
+		if(i_pkt_type == UDP_PKT_TYPE) begin
+			if(prev_msync_n != i_msync_n && ~i_msync_n)
+				udp_sended <= 16'd0;
+			else
+				if(send_step > 16'h0B && i_rdy)
+					udp_sended <= udp_sended + 16'd4;
+		end
+			
+
 
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n)
@@ -198,7 +239,7 @@ always @ (posedge clk or negedge rst_n)
 				send_step <= ff_eop ? 16'd0 : send_step + 16'd1;
 		end
 		else
-			if((prev_msync_n != i_msync_n && ~i_msync_n) || 
+			if((((prev_msync_n != i_msync_n && ~i_msync_n) || (udp_sended < udp_data_len)) && i_pkt_type == UDP_PKT_TYPE) || 
 						i_pkt_type == ARP_REQ_PKT_TYPE || 
 						i_pkt_type == ARP_RESP_PKT_TYPE)
 				send_step <= 16'd1;
@@ -265,10 +306,10 @@ always begin
 			data = 32'd0;
 end
 
-parameter	[15:0]	data_len = 16'd1024;
+parameter	[15:0]	udp_data_len = 16'd4800; //1024;
 
 wire			[15:0]	udp_length;
-assign udp_length = data_len + 16'd8;
+assign udp_length = udp_data_len + 16'd8;
 
 //============================================================================
 // UDP SEND

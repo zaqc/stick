@@ -30,8 +30,6 @@ module eth_top(
 	output	[3:0]		o_led	// for debug purpose
 );
 
-// 4154292559935803
-
 eth eth_unit(
 	.reset(~rst_n),
 	.clk(clk),
@@ -131,30 +129,30 @@ always @ (posedge clk or negedge rst_n)
 		ms_tick <= 1'b0;
 	end
 	else
-		if(tick_divider < 24'd50000)
+		if(tick_divider < 24'd100000)
 			tick_divider <= tick_divider + 24'd1;
 		else begin
 			tick_divider <= 24'd0;
 			ms_tick <= ~ms_tick;
 		end
 		
-reg			[31:0]		ms_counter;
-
-always @ (posedge ms_tick or negedge rst_n)
-	if(~rst_n)
-		ms_counter <= 32'd0;
-	else
-		ms_counter <= ms_counter + 32'd1;
-		
-reg			[11:0]		arp_delay;	// 3000
-reg			[0:0]			arp_tick;
 reg			[0:0]			prev_ms_tick;
-
 always @ (posedge clk or negedge rst_n) 
 	if(~rst_n)
 		prev_ms_tick <= 1'b0;
 	else
 		prev_ms_tick <= ms_tick;
+		
+reg			[31:0]		ms_counter;
+always @ (posedge clk or negedge rst_n)
+	if(~rst_n)
+		ms_counter <= 32'd0;
+	else
+		if(prev_ms_tick != ms_tick)
+			ms_counter <= ms_counter + 32'd1;
+		
+reg			[11:0]		arp_delay;	// 3000
+reg			[0:0]			arp_tick;
 
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n) begin
@@ -200,35 +198,46 @@ always @ (posedge clk or negedge rst_n)
 		else
 			if(arp_tick && arp_waiting_flag)
 				arp_timeout <= 1'b1;
-
+				
+always @ (posedge clk or negedge rst_n)
+	if(~rst_n) begin
+		arp_accepted_flag <= 1'b0;
+		udp_target_mac <= 48'd0;
+	end
+	else
+		if(res_arp_operation == 2'd02) begin	// for udp packets
+			udp_target_mac <= res_target_mac;
+			arp_accepted_flag <= 1'b1;
+		end
+		else
+			if(arp_tick && arp_waiting_flag)		// ARP TIMEOUT is exceeded here
+				arp_accepted_flag <= 1'b0;			// and accepted ARP destination MAC goes invalid state
+				
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n) begin
 		arp_wait_answer <= 1'b0;
-		arp_accepted_flag <= 1'b0;
-		arp_waiting_flag <= 1'b0;		
 	end
 	else
-		case(res_arp_operation)
-			2'd01: begin	// ARP request accepted
+		if(res_arp_operation == 2'd01) begin	// ARP request accepted
 				arp_resp_mac <= res_target_mac;
 				arp_resp_ip <= res_target_ip;
 				arp_wait_answer <= 1'b1;
 			end
-			
-			2'd02: begin	// ARP answer for my request
-				udp_target_mac <= res_target_mac;	// for udp packets
-				arp_accepted_flag <= 1'b1;
-				arp_waiting_flag <= 1'b0;
-			end
-			default:					
+			else
 				if(arp_resp_sended)
 					arp_wait_answer <= 1'b0;
-				else
-					if(arp_req_sended)
-						if(~arp_waiting_flag)
-							arp_waiting_flag <= 1'b1;							
-		endcase
 		
+always @ (posedge clk or negedge rst_n)
+	if(~rst_n)
+		arp_waiting_flag <= 1'b0;		
+	else
+		if(res_arp_operation == 2'd02)		// for udp packets
+			arp_waiting_flag <= 1'b0;
+		else
+			if(arp_req_sended)
+				if(~arp_waiting_flag)
+					arp_waiting_flag <= 1'b1;							
+					
 wire							arp_req_sended;
 assign arp_req_sended = tx_sop == 1'b1 && tx_pkt_type == ARP_REQ_PKT_TYPE ? 1'b1 : 1'b0;
 
@@ -262,7 +271,7 @@ reg			[0:0]			arp_req_needed;
 
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n) 
-		arp_req_needed <= 1'b0;
+		arp_req_needed <= 1'b1;
 	else begin
 		if(arp_tick)
 			arp_req_needed <= 1'b1;
@@ -271,6 +280,18 @@ always @ (posedge clk or negedge rst_n)
 				arp_req_needed <= 1'b0;
 	end
 	
+reg			[0:0]			sender_ready;	
+always @ (posedge clk or negedge rst_n)
+	if(~rst_n)
+		sender_ready <= 1'b1;
+	else
+		if(tx_eop)
+			sender_ready <= 1'b1;
+		else
+			if(tx_sop)
+				sender_ready <= 1'b0;
+
+	
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n) begin
 		tx_pkt_type <= ARP_REQ_PKT_TYPE;
@@ -278,14 +299,14 @@ always @ (posedge clk or negedge rst_n)
 		send_target_ip <= self_ip;
 	end
 	else begin
-		if(tx_eop) begin
+		if(sender_ready) begin
 			if(arp_wait_answer) begin
 				tx_pkt_type <= ARP_RESP_PKT_TYPE;
 				send_target_mac <= arp_resp_mac;
 				send_target_ip <= arp_resp_ip;
 			end
 			else
-				if(arp_req_needed || arp_timeout) begin
+				if(arp_req_needed) begin
 					tx_pkt_type <= ARP_REQ_PKT_TYPE;
 					if(arp_timeout) begin  
 						send_target_mac <= 48'hFFFFFFFFFFFF;
@@ -302,6 +323,8 @@ always @ (posedge clk or negedge rst_n)
 						send_target_mac <= udp_target_mac;
 						send_target_ip <= target_ip;					
 					end
+					else
+						tx_pkt_type <= 4'd0;
 		end
 	end
 
@@ -312,6 +335,8 @@ wire							tx_vld;
 wire							tx_rdy;
 wire							tx_sop;
 wire							tx_eop;
+
+wire							tx_pkt_complite;
 
 reg			[47:0]		send_target_mac;
 reg			[31:0]		send_target_ip;
@@ -333,6 +358,8 @@ eth_send eth_send_unit(
 	.i_rdy(tx_rdy),
 	.o_sop(tx_sop),
 	.o_eop(tx_eop),
+	
+	.o_pkt_complite(tx_pkt_complite),
 	
 	.i_ch_clk(i_ch_clk),
 	.i_ch_data(i_ch_data),
