@@ -1,33 +1,30 @@
 module eth_top(
-	input					rst_n,
-	input					clk,		// sysclk 100 MHz
+	input						rst_n,
+	input						clk,		// sysclk 100 MHz
 	
-	input 	[3:0] 	i_rxd,
-	input 				i_rxer,
-	input 				i_rxdv,
-	input 				i_rxclk,
-	input 				i_col,
-	input 				i_crs,
+	input 	[3:0] 		i_rxd,
+	input 					i_rxer,
+	input 					i_rxdv,
+	input 					i_rxclk,
+	input 					i_col,
+	input 					i_crs,
 	
-	output	[3:0] 	o_txd,
-	output 				o_txer,
-	output 				o_txen,
-	input					i_txclk,
+	output	[3:0] 		o_txd,
+	output 					o_txer,
+	output 					o_txen,
+	input						i_txclk,
 	
-	inout 				io_mdio,
-	output 				o_mdc,
+	inout 					io_mdio,
+	output 					o_mdc,
 	
-	output				o_phy_rst,
+	output					o_phy_rst,
 	
-	input					i_ch_clk,
-	input		[31:0]	i_ch_data,
-	input					i_ch_vld,
-	input		[9:0]		i_ch_cntr,
-	input					i_ch_complete,
+	output	[9:0]			o_rd_addr,
+	input		[31:0]		i_rd_data,
 	
-	input					i_msync_n,
+	input						i_msync_n,
 	
-	output	[3:0]		o_led	// for debug purpose
+	output	[3:0]			o_led	// for debug purpose
 );
 
 eth eth_unit(
@@ -361,11 +358,8 @@ eth_send eth_send_unit(
 	
 	.o_pkt_complite(tx_pkt_complite),
 	
-	.i_ch_clk(i_ch_clk),
-	.i_ch_data(i_ch_data),
-	.i_ch_vld(i_ch_vld),
-	.i_ch_cntr(i_ch_cntr),
-	.i_ch_complete(i_ch_complete),
+	.o_rd_addr(o_rd_addr),
+	.i_rd_data(i_rd_data),
 	
 	.i_msync_n(i_msync_n)
 );

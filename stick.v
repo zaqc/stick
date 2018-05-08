@@ -165,6 +165,32 @@ wire								phy_rst;
 assign nrst_1x = ~phy_rst;
 
 //----------------------------------------------------------------------------
+/*
+	.i_ch_clk(clk20),
+	.i_ch_data(data_out[0]),
+	.i_ch_vld(data_valid[0]),
+	.i_ch_cntr(data_count[0]),
+	.i_ch_complete(chan_cmpl[0]),
+*/
+
+mem_fill mem_fill_unit(
+	.clk(clk),
+	.rst_n(rst_n),
+	
+	.i_ch_clk(clk20),
+	.i_ch_data_1(data_out[0]),
+	.i_ch_vld_1(data_valid[0]),
+	.i_ch_cntr_1(data_count[0]),
+	
+	.i_rd_addr(rd_addr),
+	.o_rd_data(rd_data),
+	
+	.i_msync_n(msync_n)
+);
+
+wire			[9:0]			rd_addr;
+wire			[31:0]		rd_data;
+
 
 eth_top eth_top_unit_a(
 	.rst_n(phy_rst_n),
@@ -187,11 +213,8 @@ eth_top eth_top_unit_a(
 	
 	.o_phy_rst(phy_rst),
 	
-	.i_ch_clk(clk20),
-	.i_ch_data(data_out[0]),
-	.i_ch_vld(data_valid[0]),
-	.i_ch_cntr(data_count[0]),
-	.i_ch_complete(chan_cmpl[0]),
+	.o_rd_addr(rd_addr),
+	.i_rd_data(rd_data),
 	
 	.i_msync_n(msync_n),
 	

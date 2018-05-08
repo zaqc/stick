@@ -17,41 +17,14 @@ module eth_send(
 	
 	output					o_pkt_complite,
 	
-	input						i_ch_clk,	// channel data clock 20 MHz
-	input		[31:0]		i_ch_data,
-	input						i_ch_vld,
-	input		[9:0]			i_ch_cntr,
-	input						i_ch_complete,
-	
+	output	[9:0]			o_rd_addr,
+	input		[31:0]		i_rd_data,
+		
 	input						i_msync_n	// Main Sync
 );
 
-wire			[9:0]			wr_addr;
-assign wr_addr = {3'd0, i_ch_cntr[9:8], i_ch_cntr[4:0]};
-
 reg			[9:0]			rd_addr;
-wire			[31:0]		rd_data;
-
-/*
-reg			[31:0]		tmp_data;
-reg			[9:0]			tmp_addr;
-always @ (posedge i_ch_clk)
-	tmp_data <= tmp_data + 32'd1;
-	
-always @ (posedge i_ch_clk)
-	tmp_addr <= tmp_addr + 10'd1;
-*/
-
-udp_pkt_data udp_pkt_data_unit(
-	.wrclock(i_ch_clk),
-	.wren(i_ch_vld),
-	.wraddress(wr_addr),
-	.data(i_ch_data),
-	
-	.rdclock(clk),
-	.rdaddress(rd_addr),
-	.q(rd_data)
-);
+assign o_rd_addr = rd_addr;
 
 wire							udp_data_stream;
 assign udp_data_stream = send_step >= 16'h0B ? 1'b1 : 1'b0; 
@@ -300,7 +273,7 @@ always begin
 				16'h09: data = dst_ip;
 				16'h0A: data = {src_port, dst_port};
 				16'h0B: data = {udp_length, 16'd0};			// udp crc = 0
-				default: data = rd_data;
+				default: data = i_rd_data;
 			endcase
 		else
 			data = 32'd0;
