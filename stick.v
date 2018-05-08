@@ -174,8 +174,8 @@ assign nrst_1x = ~phy_rst;
 */
 
 mem_fill mem_fill_unit(
-	.clk(clk),
-	.rst_n(rst_n),
+	.clk(sysclk),
+	.rst_n(phy_rst_n),
 	
 	.i_ch_clk(clk20),
 	.i_ch_data_1(data_out[0]),
