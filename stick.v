@@ -178,9 +178,22 @@ mem_fill mem_fill_unit(
 	.rst_n(phy_rst_n),
 	
 	.i_ch_clk(clk20),
+	
 	.i_ch_data_1(data_out[0]),
 	.i_ch_vld_1(data_valid[0]),
 	.i_ch_cntr_1(data_count[0]),
+	
+	.i_ch_data_2(data_out[1]),
+	.i_ch_vld_2(data_valid[1]),
+	.i_ch_cntr_2(data_count[1]),
+	
+	.i_ch_data_3(data_out[2]),
+	.i_ch_vld_3(data_valid[2]),
+	.i_ch_cntr_3(data_count[2]),
+	
+	.i_ch_data_4(data_out[3]),
+	.i_ch_vld_4(data_valid[3]),
+	.i_ch_cntr_4(data_count[3]),
 	
 	.i_rd_addr(rd_addr),
 	.o_rd_data(rd_data),
