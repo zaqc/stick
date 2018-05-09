@@ -24,6 +24,11 @@ module eth_top(
 	
 	input						i_msync_n,
 	
+	output					o_cmd_flag,
+	output	[1:0]			o_cmd_phy_channel,
+	output	[31:0]		o_cmd_data,
+
+	
 	output	[3:0]			o_led	// for debug purpose
 );
 
@@ -112,6 +117,10 @@ eth_recv eth_recv_unit(
 	.o_arp_target_mac(res_target_mac),
 	.o_arp_target_ip(res_target_ip),
 	
+	.o_cmd_flag(o_cmd_flag),
+	.o_cmd_phy_channel(o_cmd_phy_channel),
+	.o_cmd_data(o_cmd_data),
+
 	.o_led(o_led)
 );
 

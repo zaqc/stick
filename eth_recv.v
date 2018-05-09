@@ -17,6 +17,10 @@ module eth_recv(
 	output	[1:0]			o_arp_operation,		// 01-req 02-resp
 	output	[47:0]		o_arp_target_mac,
 	output	[31:0]		o_arp_target_ip,
+	
+	output					o_cmd_flag,
+	output	[1:0]			o_cmd_phy_channel,
+	output	[31:0]		o_cmd_data,
 		
 	output	[3:0]			o_led
 );
@@ -93,6 +97,32 @@ reg			[31:0]		SPA;
 reg			[47:0]		THA;
 reg			[31:0]		TPA;
 
+//----------------------------------------------------------------------------
+//	IPv4 packet header
+//----------------------------------------------------------------------------
+
+reg			[31:0]		ip_hdr_1;
+reg			[31:0]		ip_hdr_2;
+reg			[31:0]		ip_hdr_3;
+
+wire			[7:0]			ip_protocol;
+assign ip_protocol = ip_hdr_3[23:16];
+
+reg			[31:0]		ip_hdr_src_ip;
+reg			[31:0]		ip_hdr_dst_ip;
+
+//----------------------------------------------------------------------------
+//	UDP packet header
+//----------------------------------------------------------------------------
+
+reg			[15:0]		udp_src_port;
+reg			[15:0]		udp_dst_port;
+reg			[15:0]		udp_length;
+reg			[15:0]		udp_crc;
+
+reg			[1:0]			cmd_phy_channel;
+reg			[31:0]		cmd_data;
+
 always @ (posedge clk or negedge rst_n) begin
 	if(~rst_n) begin
 		arp_header <= 64'd0;
@@ -113,6 +143,19 @@ always @ (posedge clk or negedge rst_n) begin
 					8'h09: THA[31:0] <= i_data;
 					8'h0A: TPA <= i_data;
 				endcase
+			else
+				if(pkt_type == IPv4_PKT_TYPE)
+					case(recv_step)
+						8'h04: ip_hdr_1 <= i_data;
+						8'h05: ip_hdr_2 <= i_data;
+						8'h06: ip_hdr_3 <= i_data;
+						8'h07: ip_hdr_src_ip <= i_data;
+						8'h08: ip_hdr_dst_ip <= i_data;
+						8'h09: {udp_src_port, udp_dst_port} <= i_data;
+						8'h0A: {udp_length, udp_crc} <= i_data;
+						8'h0B: cmd_phy_channel <= i_data[1:0];
+						8'h0C: cmd_data <= i_data;
+					endcase
 end
 
 reg			[3:0]			led_cnt;
@@ -121,7 +164,7 @@ always @ (posedge clk or negedge rst_n)
 	if(~rst_n)
 		led_cnt <= 4'd0;
 	else
-		if(o_arp_operation == 2'd02)
+		if(o_cmd_flag) //o_arp_operation == 2'd02)
 			led_cnt <= led_cnt + 4'd1;
 			
 assign o_led = led_cnt;
@@ -135,5 +178,14 @@ assign o_arp_operation = i_eop &&
 						
 assign o_arp_target_mac = SHA;
 assign o_arp_target_ip = SPA;
+
+assign o_cmd_phy_channel = cmd_phy_channel;
+assign o_cmd_data = cmd_data;
+
+assign o_cmd_flag = i_eop && pkt_type == IPv4_PKT_TYPE &&
+						ip_protocol == 8'd17 && // UDP
+						dst_mac == i_self_mac &&
+						ip_hdr_dst_ip == i_self_ip &&
+						udp_dst_port == 16'd1456 ? 1'b1 : 1'b0;
 
 endmodule

@@ -231,6 +231,10 @@ eth_top eth_top_unit_a(
 	
 	.i_msync_n(msync_n),
 	
+	.o_cmd_flag(recv_cmd_valid),
+	.o_cmd_phy_channel(recv_cmd_phy_channel),
+	.o_cmd_data(recv_cmd),
+	
 	.o_led(led)	// for debug purpose
 );
 
@@ -280,6 +284,25 @@ wire [23:0] data_delay3 [0:3];				//delay data acquire from main sync to cycle N
 wire [7:0] num_order_x [0:3];					//data channals order
 //----------------------------------
 //data & valid to set parameters (reference clock clk20)
+
+wire			[31:0]			recv_cmd;
+wire								recv_cmd_valid;
+wire			[1:0]				recv_cmd_phy_channel;
+
+cmd_fifo cmd_fifo_unit(
+	.wrclk(sysclk),
+	.data(recv_cmd),
+	.wrreq(recv_cmd_valid),
+	
+	.rdclk(clk20),
+	.q(data_cntr),
+	.rdreq(cntr_valid),
+	.rdempty(cmd_fifo_rd_empty)
+);
+
+wire								cmd_fifo_rd_empty;
+assign cntr_valid = ~cmd_fifo_rd_empty;
+
 wire [31:0] data_cntr;							//data to set parameters !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 wire cntr_valid;									//data valid to set parameters !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 //-------------------------------------------
@@ -500,7 +523,7 @@ data_blk dat_x4_3(
 //leds test
 reg [31:0] test_counter;
 //assign led = test_counter[26:23];
-assign msync_n = test_counter[24];
+assign msync_n = test_counter[20];
 
 always@(posedge sysclk)
 begin

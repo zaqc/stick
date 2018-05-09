@@ -117,7 +117,7 @@ wire							q_ch_rd;
 assign q_ch_rd = q_ch_rd_1 | q_ch_rd_2 | q_ch_rd_3 | q_ch_rd_4;
 
 wire			[9:0]			wr_addr;
-assign wr_addr = {1'd0, phy_channel, 7'd0} + {3'd0, q_ch_data[9:8], q_ch_data[4:0]};
+assign wr_addr = {1'd0, phy_channel, 7'd0} + {3'd0, (2'd3 - q_ch_data[9:8]), q_ch_data[4:0]};
 
 reg			[9:0]			rd_addr;
 wire			[31:0]		rd_data;
