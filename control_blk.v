@@ -74,13 +74,13 @@ wire [7:0] diag_data_d = 8'h84;				//4 zond pulse + 8 blanch pulse
 wire [7:0] smax_num_d = 8'd25;				//26 input points to select maximum
 wire [7:0] words_num_d = 8'd31;				//32 words of data to transmit
 wire [7:0] offset_d = 8'h83;					//offset = 131
-wire [5:0] mul_c_d = 6'd19;					//multiply data by 19/16 
+wire [5:0] mul_c_d = 6'd16;					//multiply data by 19/16 
 //--------------------------------------------------------------------------------------------------------------
 //default values for physical channals 
 wire [23:0] znd_delay0_d = 24'd0;			//0 us delay from main sync to zond pulse N0
 wire [23:0] znd_delay1_d = 24'd4000;		//200 us delay from main sync to zond pulse N1
 wire [23:0] znd_delay2_d = 24'd8000;		//400 us delay from main sync to zond pulse N2
-wire [23:0] znd_delay3_d = 24'd1200;		//600 us delay from main sync to zond pulse N3
+wire [23:0] znd_delay3_d = 24'd12000;		//600 us delay from main sync to zond pulse N3
 wire [7:0] num_order_z_d = 8'b11100100;	//zond channals order 0 -> 1 -> 2 -> 3
 wire [23:0] data_delay0_d = 24'd0;			//0 us delay data acquire from main sync to cycle N0
 wire [23:0] data_delay1_d = 24'd4000;		//200 us delay data acquire from main sync to cycle N1

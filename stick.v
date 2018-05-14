@@ -198,7 +198,7 @@ mem_fill mem_fill_unit(
 	.i_rd_addr(rd_addr),
 	.o_rd_data(rd_data),
 	
-	.i_msync_n(msync_n)
+	.i_msync_n(eth_msync_n)
 );
 
 wire			[9:0]			rd_addr;
@@ -229,7 +229,7 @@ eth_top eth_top_unit_a(
 	.o_rd_addr(rd_addr),
 	.i_rd_data(rd_data),
 	
-	.i_msync_n(msync_n),
+	.i_msync_n(eth_msync_n),
 	
 	.o_cmd_flag(recv_cmd_valid),
 	.o_cmd_phy_channel(recv_cmd_phy_channel),
@@ -516,14 +516,27 @@ data_blk dat_x4_3(
 );
 //-------------------------------------------------------------------------
 
+reg			[0:0]			int_sync_on;
+always @ (posedge sysclk or negedge phy_rst_n)
+	if(~phy_rst_n)
+		int_sync_on <= 1'b0;
+	else
+		if(recv_cmd_valid && recv_cmd[31] == 1'b1 && recv_cmd[30:26] == 5'h10)
+			int_sync_on <= recv_cmd[0];
 
+wire							eth_msync_n;
+assign eth_msync_n = int_sync_on ? test_counter[20] : 1'b1;
+
+reg			[0:0]			sync_bit;
+
+always @ (posedge clk20) sync_bit <= eth_msync_n;
 
 //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 //remove this block
 //leds test
 reg [31:0] test_counter;
 //assign led = test_counter[26:23];
-assign msync_n = test_counter[20];
+assign msync_n = sync_bit; //int_sync_on ? 1'b1 : test_counter[20];
 
 always@(posedge sysclk)
 begin
@@ -531,5 +544,4 @@ begin
 end
 //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-	
 endmodule
