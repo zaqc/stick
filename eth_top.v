@@ -16,9 +16,7 @@ module eth_top(
 	
 	inout 					io_mdio,
 	output 					o_mdc,
-	
-	output					o_phy_rst,
-	
+
 	output	[9:0]			o_rd_addr,
 	input		[31:0]		i_rd_data,
 	
