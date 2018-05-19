@@ -30,7 +30,21 @@ module eth_pump(
 	input						i_txclk_2,
 	
 	inout 					io_mdio_2,
-	output 					o_mdc_2
+	output 					o_mdc_2,
+	
+	input		[1:0]			i_rx_mod,		// signals from/to eth_top
+	input		[31:0]		i_rx_data,
+	output					o_rx_rdy,
+	input						i_rx_vld,
+	input						i_rx_sop,
+	input						i_rx_eop,
+	
+	output	[1:0]			o_tx_mod,
+	output	[31:0]		o_tx_data,
+	output					o_tx_vld,
+	input						i_tx_rdy,
+	output					o_tx_sop,
+	output					o_tx_eop
 );
 
 eth eth_unit_1(
@@ -183,6 +197,63 @@ wire							tx_eop_2;
 
 //----------------------------------------------------------------------------
 
+//----------------------------------------------------------------------------
+//		PUMP FIFO 1
+//----------------------------------------------------------------------------
+wire			[35:0]		in_data_1;
+assign in_data_1 = {rx_data_1, rx_mod_1, rx_sop_1, rx_eop_1};
+
+wire							in_full_1;
+assign rx_rdy_1 = ~in_full_1;
+
+pump_fifo pump_fifo_unit_1(
+	.clock(clk),
+	
+	.data(in_data_1),		// input from eth1
+	.wrreq(rx_vld_1),
+	.full(in_full_1),
+	
+	.q(out_data_1),		// output to eth2
+	.rdreq(tx_rdy_2),
+	.empty(out_empty_1)
+);
+
+wire			[35:0]		out_data_1;
+assign {tx_data_2, tx_mod_2, tx_sop_2, tx_eop_2} = out_data_1;
+
+wire 							out_empty_1;
+assign tx_vld_2 = ~out_empty_1;
+//----------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------
+//		PUMP FIFO 2
+//----------------------------------------------------------------------------
+wire			[35:0]		in_data_2;
+assign in_data_2 = {rx_data_2, rx_mod_2, rx_sop_2, rx_eop_2};
+
+wire							in_full_2;
+assign rx_rdy_2 = ~in_full_2;
+
+pump_fifo pump_fifo_unit_2(
+	.clock(clk),
+	
+	.data(in_data_2),		// input from eth2
+	.wrreq(rx_vld_2),
+	.full(in_full_2),
+	
+	.q(out_data_2),		// output to eth1
+	.rdreq(tx_rdy_1),
+	.empty(out_empty_2)
+);
+
+wire			[35:0]		out_data_2;
+assign {tx_data_1, tx_mod_1, tx_sop_1, tx_eop_1} = out_data_2;
+
+wire 							out_empty_2;
+assign tx_vld_1 = ~out_empty_2;
+//----------------------------------------------------------------------------
+
+/*
 assign tx_mod_2 = rx_mod_1;
 assign tx_mod_1 = rx_mod_2;
 
@@ -200,6 +271,7 @@ assign tx_sop_1 = rx_sop_2;
 
 assign tx_eop_2 = rx_eop_1;
 assign tx_eop_1 = rx_eop_2;
+*/
 
 //----------------------------------------------------------------------------
 //	init phy 1
