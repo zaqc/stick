@@ -168,7 +168,7 @@ assign nrst_1x = 1'b1;
 //============================================================================
 //		Pump test
 //============================================================================
-/*
+
 eth_pump eth_pump_unit(
 	.rst_n(phy_rst_n),
 	.clk(sysclk),
@@ -203,7 +203,7 @@ eth_pump eth_pump_unit(
 	.io_mdio_2(mdio_2x),
 	.o_mdc_2(mdc_2x)
 );
-*/
+
 //============================================================================
 
 /*
@@ -244,25 +244,41 @@ mem_fill mem_fill_unit(
 
 wire			[9:0]			rd_addr;
 wire			[31:0]		rd_data;
-
-eth_top eth_top_unit_a(
+/*
+eth_top eth_top_unit(
 	.rst_n(phy_rst_n),
 	.clk(sysclk),
 	
-	.i_rxd(rxd_1x),
-	.i_rxer(rxer_1x),
-	.i_rxdv(rxdv_1x),
-	.i_rxclk(rxclk_1x),
-	.i_col(col_1x),
-	.i_crs(crs_1x),
+	.i_rxd_1(rxd_1x),			// phy_1
+	.i_rxer_1(rxer_1x),
+	.i_rxdv_1(rxdv_1x),
+	.i_rxclk_1(rxclk_1x),
+	.i_col_1(col_1x),
+	.i_crs_1(crs_1x),
 	
-	.o_txd(txd_1x),
-	.o_txer(txer_1x),
-	.o_txen(txen_1x),
-	.i_txclk(txclk_1x),
+	.o_txd_1(txd_1x),
+	.o_txer_1(txer_1x),
+	.o_txen_1(txen_1x),
+	.i_txclk_1(txclk_1x),
 	
-	.io_mdio(mdio_1x),
-	.o_mdc(mdc_1x),
+	.io_mdio_1(mdio_1x),
+	.o_mdc_1(mdc_1x),
+	
+	.i_rxd_2(rxd_2x),			// phy_2
+	.i_rxer_2(rxer_2x),
+	.i_rxdv_2(rxdv_2x),
+	.i_rxclk_2(rxclk_2x),
+	.i_col_2(col_2x),
+	.i_crs_2(crs_2x),
+	
+	.o_txd_2(txd_2x),
+	.o_txer_2(txer_2x),
+	.o_txen_2(txen_2x),
+	.i_txclk_2(txclk_2x),
+	
+	.io_mdio_2(mdio_2x),
+	.o_mdc_2(mdc_2x),
+
 		
 	.o_rd_addr(rd_addr),
 	.i_rd_data(rd_data),
@@ -275,7 +291,7 @@ eth_top eth_top_unit_a(
 	
 	.o_led(led)	// for debug purpose
 );
-
+*/
 //============================================================================
 
 //-------------------------------------------------------------------------------------

@@ -2,20 +2,35 @@ module eth_top(
 	input						rst_n,
 	input						clk,		// sysclk 100 MHz
 	
-	input 	[3:0] 		i_rxd,
-	input 					i_rxer,
-	input 					i_rxdv,
-	input 					i_rxclk,
-	input 					i_col,
-	input 					i_crs,
+	input 	[3:0] 		i_rxd_1,
+	input 					i_rxer_1,
+	input 					i_rxdv_1,
+	input 					i_rxclk_1,
+	input 					i_col_1,
+	input 					i_crs_1,
 	
-	output	[3:0] 		o_txd,
-	output 					o_txer,
-	output 					o_txen,
-	input						i_txclk,
+	output	[3:0] 		o_txd_1,
+	output 					o_txer_1,
+	output 					o_txen_1,
+	input						i_txclk_1,
 	
-	inout 					io_mdio,
-	output 					o_mdc,
+	inout 					io_mdio_1,
+	output 					o_mdc_1,
+
+	input 	[3:0] 		i_rxd_2,
+	input 					i_rxer_2,
+	input 					i_rxdv_2,
+	input 					i_rxclk_2,
+	input 					i_col_2,
+	input 					i_crs_2,
+	
+	output	[3:0] 		o_txd_2,
+	output 					o_txer_2,
+	output 					o_txen_2,
+	input						i_txclk_2,
+	
+	inout 					io_mdio_2,
+	output 					o_mdc_2,
 
 	output	[9:0]			o_rd_addr,
 	input		[31:0]		i_rd_data,
@@ -30,6 +45,61 @@ module eth_top(
 	output	[3:0]			o_led	// for debug purpose
 );
 
+eth_pump eth_pump_unit(
+	.rst_n(~rst_n),
+	.clk(clk),
+	
+	.i_txclk_1(i_txclk_1),			// pcs_mac_tx_clock_connection.clk
+	.i_rxclk_1(i_rxclk_1),			// pcs_mac_rx_clock_connection.clk
+	.i_rxd_1(i_rxd_1),				// mac_mii_connection
+	.i_rxdv_1(i_rxdv_1),
+	.i_rxer_1(i_rxer_1),
+	
+	.o_txd_1(o_txd_1),
+	.o_txen_1(o_txen_1),
+	.o_txer_1(o_txer_1),
+	
+	.i_crs_1(i_crs_1),
+	.i_col_1(i_col_1),
+
+	.io_mdio_1(io_mdio_1),
+	.o_mdc_1(o_mdc_1),
+	
+	
+	.i_txclk_2(i_txclk_2),			// pcs_mac_tx_clock_connection.clk
+	.i_rxclk_2(i_rxclk_2),			// pcs_mac_rx_clock_connection.clk
+	.i_rxd_2(i_rxd_2),				// mac_mii_connection
+	.i_rxdv_2(i_rxdv_2),
+	.i_rxer_2(i_rxer_2),
+	
+	.o_txd_2(o_txd_2),
+	.o_txen_2(o_txen_2),
+	.o_txer_2(o_txer_2),
+	
+	.i_crs_2(i_crs_2),
+	.i_col_2(i_col_2),
+
+	.io_mdio_2(io_mdio_2),
+	.o_mdc_2(o_mdc_2),
+
+
+	//.o_rx_mod(2'b00),		// signals from/to eth_top
+	.o_rx_data(rx_data),
+	.i_rx_rdy(rx_rdy),
+	.o_rx_vld(rx_vld),
+	.o_rx_sop(rx_sop),
+	.o_rx_eop(rx_eop),
+	
+	.i_tx_mod(2'b00),			// signals for transmit
+	.i_tx_data(tx_data),
+	.i_tx_vld(tx_vld),
+	.o_tx_rdy(tx_rdy),
+	.i_tx_sop(tx_sop),
+	.i_tx_eop(tx_eop)
+);
+
+
+/*
 eth eth_unit(
 	.reset(~rst_n),
 	.clk(clk),
@@ -76,7 +146,7 @@ eth eth_unit(
 	.ff_tx_sop(tx_sop),
 	.ff_tx_eop(tx_eop)
 );
-
+*/
 //============================================================================
 //	Initial param 
 //============================================================================
@@ -357,7 +427,7 @@ eth_send eth_send_unit(
 	.i_target_mac(send_target_mac),
 	.i_target_ip(send_target_ip),
 	
-	.o_data(tx_data),
+	.o_data(tx_data),		// signals for send by TSE module (eth_pump) from eth_send
 	.o_vld(tx_vld),
 	.i_rdy(tx_rdy),
 	.o_sop(tx_sop),
@@ -376,7 +446,7 @@ eth_send eth_send_unit(
 //----------------------------------------------------------------------------
 //	init phy
 //----------------------------------------------------------------------------
-
+/*
 reg			[3:0]			phy_state;
 
 reg			[7:0]			phy_ctr_addr;
@@ -513,5 +583,5 @@ assign mdio_in_phy = io_mdio;
 assign io_mdio = mdio_oen_phy ? 1'bZ : mdio_out_phy;
 
 //----------------------------------------------------------------------------
-
+*/
 endmodule

@@ -32,19 +32,19 @@ module eth_pump(
 	inout 					io_mdio_2,
 	output 					o_mdc_2,
 	
-	input		[1:0]			i_rx_mod,		// signals from/to eth_top
-	input		[31:0]		i_rx_data,
-	output					o_rx_rdy,
-	input						i_rx_vld,
-	input						i_rx_sop,
-	input						i_rx_eop,
+	output	[1:0]			o_rx_mod,		// signals from/to eth_top
+	output	[31:0]		o_rx_data,
+	input						i_rx_rdy,
+	output					o_rx_vld,
+	output					o_rx_sop,
+	output					o_rx_eop,
 	
-	output	[1:0]			o_tx_mod,
-	output	[31:0]		o_tx_data,
-	output					o_tx_vld,
-	input						i_tx_rdy,
-	output					o_tx_sop,
-	output					o_tx_eop
+	input		[1:0]			i_tx_mod,
+	input		[31:0]		i_tx_data,
+	input						i_tx_vld,
+	output					o_tx_rdy,
+	input						i_tx_sop,
+	input						i_tx_eop
 );
 
 eth eth_unit_1(
@@ -209,25 +209,33 @@ assign rx_rdy_1 = ~in_full_1;
 pump_fifo pump_fifo_unit_1(
 	.clock(clk),
 	
-	.data(in_data_1),		// input from eth1
+	.data(in_data_1),		// input from eth1 (comp)
 	.wrreq(rx_vld_1),
 	.full(in_full_1),
 	
-	.q(out_data_1),		// output to eth2
-	.rdreq(tx_rdy_2),
+	.q(out_data_1),		// output to eth2 (inet)
+	.rdreq(tx_rdy_2), // &*/i_rx_rdy),
 	.empty(out_empty_1)
 );
 
 wire			[35:0]		out_data_1;
 assign {tx_data_2, tx_mod_2, tx_sop_2, tx_eop_2} = out_data_1;
+assign {o_rx_data, o_rx_mod, o_rx_sop, o_rx_eop} = out_data_1;
 
 wire 							out_empty_1;
-assign tx_vld_2 = ~out_empty_1;
+assign tx_vld_2 = ~out_empty_1;	// translate input stream both to eth2
+assign o_rx_vld = ~out_empty_1;	// & to local
 //----------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------
 //		PUMP FIFO 2
 //----------------------------------------------------------------------------
+
+reg 			[0:0]			p_out;
+always @ (posedge clk or negedge rst_n)
+	if(~rst_n)
+		p_out <= 1'b1;
+
 wire			[35:0]		in_data_2;
 assign in_data_2 = {rx_data_2, rx_mod_2, rx_sop_2, rx_eop_2};
 
@@ -237,12 +245,12 @@ assign rx_rdy_2 = ~in_full_2;
 pump_fifo pump_fifo_unit_2(
 	.clock(clk),
 	
-	.data(in_data_2),		// input from eth2
+	.data(in_data_2),		// input from eth2 (inet)
 	.wrreq(rx_vld_2),
 	.full(in_full_2),
 	
-	.q(out_data_2),		// output to eth1
-	.rdreq(tx_rdy_1),
+	.q(out_data_2),		// output to eth1 (comp)
+	.rdreq(tx_rdy_1),// & p_out == 1'b0),
 	.empty(out_empty_2)
 );
 
@@ -250,7 +258,35 @@ wire			[35:0]		out_data_2;
 assign {tx_data_1, tx_mod_1, tx_sop_1, tx_eop_1} = out_data_2;
 
 wire 							out_empty_2;
-assign tx_vld_1 = ~out_empty_2;
+assign tx_vld_1 = ~out_empty_2;// & p_out == 1'b0;
+//----------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------
+//		PUMP FIFO 3
+//----------------------------------------------------------------------------
+wire			[35:0]		in_data_3;
+assign in_data_3 = {i_tx_data, i_tx_mod, i_tx_sop, i_tx_eop};
+
+wire							in_full_3;
+assign o_tx_rdy = ~in_full_3;
+
+pump_fifo pump_fifo_unit_3(
+	.clock(clk),
+	
+	.data(in_data_3),		// input from eth2 (inet)
+	.wrreq(i_tx_vld),
+	.full(in_full_3),
+	
+	.q(out_data_3),		// output to eth1 (comp)
+	.rdreq(tx_rdy_1 & p_out == 1'b1),
+	.empty(out_empty_3)
+);
+
+wire			[35:0]		out_data_3;
+//assign {tx_data_1, tx_mod_1, tx_sop_1, tx_eop_1} =  p_out == 1'b0 ? out_data_2 : out_data_3;
+
+wire 							out_empty_3;
+//assign tx_vld_1 = p_out == 1'b0 ? ~out_empty_2 : ~out_empty_3;
 //----------------------------------------------------------------------------
 
 /*
