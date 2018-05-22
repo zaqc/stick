@@ -46,7 +46,7 @@ module eth_top(
 );
 
 eth_pump eth_pump_unit(
-	.rst_n(~rst_n),
+	.rst_n(rst_n),
 	.clk(clk),
 	
 	.i_txclk_1(i_txclk_1),			// pcs_mac_tx_clock_connection.clk

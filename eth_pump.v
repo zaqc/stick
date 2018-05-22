@@ -214,7 +214,7 @@ pump_fifo pump_fifo_unit_1(
 	.full(in_full_1),
 	
 	.q(out_data_1),		// output to eth2 (inet)
-	.rdreq(tx_rdy_2), // &*/i_rx_rdy),
+	.rdreq(tx_rdy_2 & i_rx_rdy),
 	.empty(out_empty_1)
 );
 
@@ -235,7 +235,15 @@ reg 			[0:0]			p_out;
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n)
 		p_out <= 1'b1;
-
+	else
+		if(~p_out) begin
+			if(~out_empty_3 && (out_empty_2 || tx_eop_1))
+				p_out <= 1'b1;
+		end
+		else begin
+			if(~out_empty_2 && (out_empty_3 || tx_eop_1))
+				p_out <= 1'b0;
+		end
 wire			[35:0]		in_data_2;
 assign in_data_2 = {rx_data_2, rx_mod_2, rx_sop_2, rx_eop_2};
 
@@ -250,15 +258,15 @@ pump_fifo pump_fifo_unit_2(
 	.full(in_full_2),
 	
 	.q(out_data_2),		// output to eth1 (comp)
-	.rdreq(tx_rdy_1),// & p_out == 1'b0),
+	.rdreq(tx_rdy_1 & p_out == 1'b0),
 	.empty(out_empty_2)
 );
 
 wire			[35:0]		out_data_2;
-assign {tx_data_1, tx_mod_1, tx_sop_1, tx_eop_1} = out_data_2;
+//assign {tx_data_1, tx_mod_1, tx_sop_1, tx_eop_1} = out_data_2;
 
 wire 							out_empty_2;
-assign tx_vld_1 = ~out_empty_2;// & p_out == 1'b0;
+//assign tx_vld_1 = ~out_empty_2;// & p_out == 1'b0;
 //----------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------
@@ -283,10 +291,10 @@ pump_fifo pump_fifo_unit_3(
 );
 
 wire			[35:0]		out_data_3;
-//assign {tx_data_1, tx_mod_1, tx_sop_1, tx_eop_1} =  p_out == 1'b0 ? out_data_2 : out_data_3;
+assign {tx_data_1, tx_mod_1, tx_sop_1, tx_eop_1} =  p_out == 1'b0 ? out_data_2 : out_data_3;
 
 wire 							out_empty_3;
-//assign tx_vld_1 = p_out == 1'b0 ? ~out_empty_2 : ~out_empty_3;
+assign tx_vld_1 = p_out == 1'b0 ? ~out_empty_2 : ~out_empty_3;
 //----------------------------------------------------------------------------
 
 /*
