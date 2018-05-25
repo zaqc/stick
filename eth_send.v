@@ -23,11 +23,37 @@ module eth_send(
 	input						i_msync_n	// Main Sync
 );
 
+reg			[3:0]			sender_ready;
+always @ (posedge clk or negedge rst_n)
+	if(~rst_n)
+		sender_ready <= 4'd1;
+	else
+		if(ff_sop)
+			sender_ready <= 4'd0;
+		else
+			if(ff_eop)
+				sender_ready <= 4'd1;
+			else
+				if(|sender_ready && ~&sender_ready)
+					sender_ready <= sender_ready + 4'd1;
+			
+reg			[3:0]			pkt_type;
+always @ (posedge clk or negedge rst_n)
+	if(~rst_n)
+		pkt_type <= 4'd0;
+	else
+		if(&sender_ready)
+			pkt_type <= i_pkt_type;
+		else
+			if(ff_eop)
+				pkt_type <= 4'd0;
+
+
 reg			[9:0]			rd_addr;
 assign o_rd_addr = rd_addr;
 
 wire							udp_data_stream;
-assign udp_data_stream = send_step >= 16'h0B ? 1'b1 : 1'b0; 
+assign udp_data_stream = (send_step >= (16'h0B - 16'h01)) ? 1'b1 : 1'b0; 
 
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n)
@@ -36,7 +62,7 @@ always @ (posedge clk or negedge rst_n)
 		if(udp_data_stream)
 			rd_addr <= rd_addr + 10'd1;
 		else
-			if(prev_msync_n != i_msync_n && ~i_msync_n && i_pkt_type == UDP_PKT_TYPE)
+			if(prev_msync_n != i_msync_n && ~i_msync_n && pkt_type == UDP_PKT_TYPE)
 				rd_addr <= 10'd0;
 
 //============================================================================
@@ -52,8 +78,8 @@ parameter	[3:0]			UDP_PKT_TYPE = 4'd3;
 //============================================================================
 
 wire			[1:0]			i_operation = 
-	i_pkt_type == ARP_REQ_PKT_TYPE ? 2'd01 :
-	i_pkt_type == ARP_RESP_PKT_TYPE ? 2'd02 : 2'd0;
+	pkt_type == ARP_REQ_PKT_TYPE ? 2'd01 :
+	pkt_type == ARP_RESP_PKT_TYPE ? 2'd02 : 2'd0;
 
 wire 			[63:0]		arp_header;
 parameter	[15:0]		ARP_HTYPE = 16'h0001;
@@ -150,11 +176,11 @@ always @ (posedge clk or negedge rst_n)
 	if(~rst_n)
 		udp_frame_size <= 16'd1400;
 	else
-		if(i_pkt_type == UDP_PKT_TYPE && ff_sop)
+		if(pkt_type == UDP_PKT_TYPE && ff_sop)
 			udp_frame_size <= fragment_flag ? 16'd1400 : fragment_size;
 
 always
-	case(i_pkt_type)
+	case(pkt_type)
 		ARP_REQ_PKT_TYPE, ARP_RESP_PKT_TYPE: begin
 			ff_vld = send_step >= 16'h01 && send_step <= 16'h0B ? 1'b1 : 1'b0;
 			ff_sop = send_step == 16'h01 ? 1'b1 : 1'b0;
@@ -179,7 +205,7 @@ assign o_sop = ff_sop;
 assign o_eop = ff_eop;
 
 // !TODO: add code for UDP_PKT_TYPE
-assign o_pkt_complite = ff_eop && (i_pkt_type == ARP_REQ_PKT_TYPE || i_pkt_type == ARP_RESP_PKT_TYPE) ? 1'b1 : 1'b0;
+assign o_pkt_complite = ff_eop && (pkt_type == ARP_REQ_PKT_TYPE || pkt_type == ARP_RESP_PKT_TYPE) ? 1'b1 : 1'b0;
 
 reg			[15:0]		send_step;
 //reg			[25:0]		send_delay;
@@ -193,11 +219,11 @@ always @ (posedge clk or negedge rst_n)
 	if(~rst_n)
 		udp_sended <= 16'd0;
 	else
-		if(i_pkt_type == UDP_PKT_TYPE) begin
+		if(pkt_type == UDP_PKT_TYPE) begin
 			if(prev_msync_n != i_msync_n && ~i_msync_n)
 				udp_sended <= 16'd0;
 			else
-				if(send_step > 16'h0B && i_rdy)
+				if(send_step > 16'h0B && i_rdy && udp_sended < udp_data_len)
 					udp_sended <= udp_sended + 16'd4;
 		end
 			
@@ -212,9 +238,9 @@ always @ (posedge clk or negedge rst_n)
 				send_step <= ff_eop ? 16'd0 : send_step + 16'd1;
 		end
 		else
-			if((((prev_msync_n != i_msync_n && ~i_msync_n) || (udp_sended < udp_data_len)) && i_pkt_type == UDP_PKT_TYPE) || 
-						i_pkt_type == ARP_REQ_PKT_TYPE || 
-						i_pkt_type == ARP_RESP_PKT_TYPE)
+			if((((prev_msync_n != i_msync_n && ~i_msync_n) || (udp_sended < udp_data_len)) && pkt_type == UDP_PKT_TYPE) || 
+						pkt_type == ARP_REQ_PKT_TYPE || 
+						pkt_type == ARP_RESP_PKT_TYPE)
 				send_step <= 16'd1;
 
 /*
@@ -243,7 +269,7 @@ assign o_data = data;
 always begin
 	data = 32'd0;
 	
-	if(i_pkt_type == ARP_REQ_PKT_TYPE || i_pkt_type == ARP_RESP_PKT_TYPE)
+	if(pkt_type == ARP_REQ_PKT_TYPE || pkt_type == ARP_RESP_PKT_TYPE)
 		case(send_step)
 			16'h01: data = {16'd0, dst_mac[47:32]};
 			16'h02: data = dst_mac[31:0];
@@ -259,7 +285,7 @@ always begin
 			default: data = 32'd0;
 		endcase
 	else
-		if(i_pkt_type == UDP_PKT_TYPE)
+		if(pkt_type == UDP_PKT_TYPE)
 			case(send_step)
 				16'h00: data = 32'd0;
 				16'h01: data = {16'd0, dst_mac[47:32]};

@@ -169,7 +169,10 @@ always @ (posedge clk or negedge rst_n)
 			
 assign o_led = led_cnt;
 
-assign o_arp_operation = i_eop &&  
+reg			[0:0]			prev_eop;
+always @ (posedge clk) prev_eop <= i_eop;
+
+assign o_arp_operation = i_eop && ~prev_eop &&
 						pkt_type == ARP_PKT_TYPE && 
 						//SPA == i_target_ip &&				// answer from target IP
 						//THA == i_self_mac && 				// to my MAC
@@ -182,7 +185,8 @@ assign o_arp_target_ip = SPA;
 assign o_cmd_phy_channel = cmd_phy_channel;
 assign o_cmd_data = cmd_data;
 
-assign o_cmd_flag = i_eop && pkt_type == IPv4_PKT_TYPE &&
+assign o_cmd_flag = i_eop && ~prev_eop &&
+						pkt_type == IPv4_PKT_TYPE &&
 						ip_protocol == 8'd17 && // UDP
 						dst_mac == i_self_mac &&
 						ip_hdr_dst_ip == i_self_ip &&

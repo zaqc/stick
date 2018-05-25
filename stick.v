@@ -214,6 +214,9 @@ eth_pump eth_pump_unit(
 	.i_ch_complete(chan_cmpl[0]),
 */
 
+
+
+//*  --- debug ---
 mem_fill mem_fill_unit(
 	.clk(sysclk),
 	.rst_n(phy_rst_n),
@@ -238,6 +241,8 @@ mem_fill mem_fill_unit(
 	
 	.i_rd_addr(rd_addr),
 	.o_rd_data(rd_data),
+	
+	.i_sync_counter(sync_counter),
 	
 	.i_msync_n(eth_msync_n)
 );
@@ -287,11 +292,12 @@ eth_top eth_top_unit(
 	
 	.o_cmd_flag(recv_cmd_valid),
 	.o_cmd_phy_channel(recv_cmd_phy_channel),
-	.o_cmd_data(recv_cmd),
+	.o_cmd_data(recv_cmd)//,
 	
-	.o_led(led)	// for debug purpose
+	//.o_led(led)	// for debug purpose
 );
 
+//*/
 //============================================================================
 
 //-------------------------------------------------------------------------------------
@@ -343,9 +349,12 @@ wire			[31:0]			recv_cmd;
 wire								recv_cmd_valid;
 wire			[1:0]				recv_cmd_phy_channel;
 
+wire			[31:0]			fix_cmd;
+assign fix_cmd = recv_cmd[31] == 1'b0 ? {recv_cmd[31:26], ~recv_cmd[25:24], recv_cmd[23:0]} : recv_cmd;
+
 cmd_fifo cmd_fifo_unit(
 	.wrclk(sysclk),
-	.data(recv_cmd),
+	.data(fix_cmd),
 	.wrreq(recv_cmd_valid),
 	
 	.rdclk(clk20),
@@ -570,6 +579,21 @@ data_blk dat_x4_3(
 );
 //-------------------------------------------------------------------------
 
+ext_sync ext_sync_unut(
+	.rst_n(phy_rst_n),
+	.clk(sysclk),
+	
+	.i_ch_a(adp),
+	.i_ch_b(bdp),
+
+	.o_sync(dp_sync),
+	.o_sync_counter(sync_counter)
+);
+
+wire								dp_sync;
+wire			[31:0]			sync_counter;
+assign led = sync_counter[3:0];
+
 reg			[0:0]			int_sync_on;
 always @ (posedge sysclk or negedge phy_rst_n)
 	if(~phy_rst_n)
@@ -579,7 +603,7 @@ always @ (posedge sysclk or negedge phy_rst_n)
 			int_sync_on <= recv_cmd[0];
 
 wire							eth_msync_n;
-assign eth_msync_n = int_sync_on ? test_counter[20] : 1'b1;
+assign eth_msync_n = int_sync_on ? test_counter[20] : ~dp_sync; //1'b1;
 
 reg			[0:0]			sync_bit;
 

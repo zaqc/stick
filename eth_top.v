@@ -37,6 +37,8 @@ module eth_top(
 	
 	input						i_msync_n,
 	
+	output	[31:0]		o_pkt_counter,
+		
 	output					o_cmd_flag,
 	output	[1:0]			o_cmd_phy_channel,
 	output	[31:0]		o_cmd_data,
@@ -154,8 +156,8 @@ eth eth_unit(
 parameter	[47:0]		self_mac = {8'h00, 8'h23, 8'h54, 8'h3C, 8'h47, 8'h1B};
 //parameter	[47:0]		target_mac = {8'hFF, 8'hFF, 8'hFF, 8'hFF, 8'hFF, 8'hFF};	// Broadcast MAC address
 
-parameter	[31:0]		self_ip = {8'd10, 8'd0, 8'd0, 8'd11};
-parameter	[31:0] 		target_ip = {8'd10, 8'd0, 8'd0, 8'd111};
+parameter	[31:0]		self_ip = {8'd192, 8'd168, 8'd1, 8'd15};
+parameter	[31:0] 		target_ip = {8'd192, 8'd168, 8'd1, 8'd153};
 
 //============================================================================
 
@@ -293,13 +295,13 @@ always @ (posedge clk or negedge rst_n)
 	end
 	else
 		if(res_arp_operation == 2'd01) begin	// ARP request accepted
-				arp_resp_mac <= res_target_mac;
-				arp_resp_ip <= res_target_ip;
-				arp_wait_answer <= 1'b1;
-			end
-			else
-				if(arp_resp_sended)
-					arp_wait_answer <= 1'b0;
+			arp_resp_mac <= res_target_mac;
+			arp_resp_ip <= res_target_ip;
+			arp_wait_answer <= 1'b1;
+		end
+		else
+			if(arp_resp_sended)
+				arp_wait_answer <= 1'b0;
 		
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n)
@@ -309,8 +311,7 @@ always @ (posedge clk or negedge rst_n)
 			arp_waiting_flag <= 1'b0;
 		else
 			if(arp_req_sended)
-				if(~arp_waiting_flag)
-					arp_waiting_flag <= 1'b1;							
+				arp_waiting_flag <= 1'b1;							
 					
 wire							arp_req_sended;
 assign arp_req_sended = tx_sop == 1'b1 && tx_pkt_type == ARP_REQ_PKT_TYPE ? 1'b1 : 1'b0;
@@ -355,6 +356,7 @@ always @ (posedge clk or negedge rst_n)
 	end
 	
 reg			[0:0]			sender_ready;	
+
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n)
 		sender_ready <= 1'b1;
@@ -372,8 +374,8 @@ always @ (posedge clk or negedge rst_n)
 		send_target_mac <= 48'hFFFFFFFFFFFF;
 		send_target_ip <= self_ip;
 	end
-	else begin
-		if(sender_ready) begin
+	else
+		if(sender_ready)
 			if(arp_wait_answer) begin
 				tx_pkt_type <= ARP_RESP_PKT_TYPE;
 				send_target_mac <= arp_resp_mac;
@@ -395,12 +397,10 @@ always @ (posedge clk or negedge rst_n)
 					if(arp_accepted_flag) begin
 						tx_pkt_type <= UDP_PKT_TYPE;
 						send_target_mac <= udp_target_mac;
-						send_target_ip <= target_ip;					
+						send_target_ip <= target_ip;
 					end
 					else
 						tx_pkt_type <= 4'd0;
-		end
-	end
 
 //----------------------------------------------------------------------------
 
@@ -443,145 +443,4 @@ eth_send eth_send_unit(
 
 //----------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------
-//	init phy
-//----------------------------------------------------------------------------
-/*
-reg			[3:0]			phy_state;
-
-reg			[7:0]			phy_ctr_addr;
-reg			[31:0]		phy_ctr_wr_data;
-reg			[0:0]			phy_ctr_wr;
-wire			[31:0]		phy_ctr_rd_data;
-reg			[0:0]			phy_ctr_rd;
-
-wire							phy_ctr_waitreqest;
-
-reg			[7:0]			phy_wait;
-
-always @ (posedge clk or negedge rst_n)
-begin
-	if(~rst_n) begin
-		phy_state <= 4'd0;
-		phy_wait <= 8'd0;
-	end
-	else
-		if(~&{phy_wait})
-			phy_wait <= phy_wait + 8'd1;
-		else
-			if(~phy_ctr_waitreqest) begin
-				if(phy_state != 4'd8) begin
-					if(~&{phy_state})
-						phy_state <= phy_state + 4'd1;
-				end 
-				else
-					if(~(phy_ctr_rd_data & 32'h8000))
-						phy_state <= phy_state + 4'd1;
-			end
-end
-
-// src_mac = {8'h00, 8'h23, 8'h54, 8'h3C, 8'h47, 8'h1B};			
-always begin
-	phy_ctr_addr = 8'd0;
-	phy_ctr_wr_data = 32'h00000000;
-	phy_ctr_wr = 1'b0;
-	phy_ctr_rd = 1'b0;
-	
-	case(phy_state)
-		4'd0: begin
-			phy_ctr_addr = 8'd02;
-			phy_ctr_wr_data = 32'h00000000;
-			phy_ctr_wr = 1'b1;
-			phy_ctr_rd = 1'b0;
-		end				
-		4'd1: begin
-			phy_ctr_addr = 8'd03;
-			// phy_ctr_wr_data = 32'h11362200;
-			phy_ctr_wr_data = 32'h3C542300;
-			phy_ctr_wr = 1'b1;
-			phy_ctr_rd = 1'b0;
-		end
-		4'd2: begin
-			phy_ctr_addr = 8'd04;
-			phy_ctr_wr_data = 32'h00001B47;
-			phy_ctr_wr = 1'b1;
-			phy_ctr_rd = 1'b0;
-		end
-		4'd3: begin
-			phy_ctr_addr = 8'h0F;
-			phy_ctr_wr_data = 32'h00000000;
-			phy_ctr_wr = 1'b1;
-			phy_ctr_rd = 1'b0;
-		end			
-		4'd4: begin
-			phy_ctr_addr = 8'h10;
-			phy_ctr_wr_data = 32'h00000001;
-			phy_ctr_wr = 1'b1;
-			phy_ctr_rd = 1'b0;
-		end			
-			
-		// Software RESET
-		//IOWR(ETH_TSE_BASE, 0x80, IORD(ETH_TSE_BASE, 0x80) | 0x8000);
-		4'd5: begin	
-			phy_ctr_addr = 8'h80;
-			phy_ctr_wr = 1'b0;
-			phy_ctr_rd = 1'b1;
-		end				
-		4'd6: begin
-			phy_ctr_addr = 8'h80;
-			phy_ctr_wr_data = phy_ctr_rd_data | 32'h8000;
-			phy_ctr_wr = 1'b1;
-			phy_ctr_rd = 1'b0;
-		end
-		
-		// Wait for wakeup after reset
-		//while (IORD(ETH_TSE_BASE, 0x80) & 0x8000) __asm("NOP");
-		4'd7: begin
-			phy_ctr_addr = 8'h80;
-			phy_ctr_wr = 1'b0;
-			phy_ctr_rd = 1'b1;
-		end
-		
-		4'd8: begin
-			if(phy_ctr_rd_data & 32'h8000) begin
-				phy_ctr_addr = 8'h80;
-				phy_ctr_wr = 1'b0;
-				phy_ctr_rd = 1'b1;
-			end 
-			else begin
-				phy_ctr_addr = 8'h02; //IOWR(ETH_TSE_BASE, 2, IORD(ETH_TSE_BASE, 2) | 0x00000003); // TX_ENA & RX_ENA & 1GBit
-				phy_ctr_wr = 1'b0;
-				phy_ctr_rd = 1'b1;
-			end
-		end
-				
-		4'd9: begin	
-			phy_ctr_addr = 8'h02;
-			phy_ctr_wr_data = phy_ctr_rd_data | 32'h00000003;
-			phy_ctr_wr = 1'b1;
-			phy_ctr_rd = 1'b0;
-		end			
-
-		default: begin
-			phy_ctr_wr = 1'b0;
-			phy_ctr_rd = 1'b0;
-		end
-	endcase
-end
-
-//----------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------
-//	MDIO phy control
-//----------------------------------------------------------------------------
-
-wire							mdio_in_phy;
-wire							mdio_out_phy;
-wire							mdio_oen_phy;
-
-assign mdio_in_phy = io_mdio;
-assign io_mdio = mdio_oen_phy ? 1'bZ : mdio_out_phy;
-
-//----------------------------------------------------------------------------
-*/
 endmodule
