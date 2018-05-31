@@ -53,7 +53,7 @@ reg			[9:0]			rd_addr;
 assign o_rd_addr = rd_addr;
 
 wire							udp_data_stream;
-assign udp_data_stream = (send_step >= (16'h0B - 16'h01)) ? 1'b1 : 1'b0; 
+assign udp_data_stream = (send_step >= (16'h0B - (rd_addr == 10'd0 ? 16'd1 : 16'd0)) && ~o_eop && o_vld && i_rdy) ? 1'b1 : 1'b0; 
 
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n)

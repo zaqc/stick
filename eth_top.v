@@ -156,8 +156,11 @@ eth eth_unit(
 parameter	[47:0]		self_mac = {8'h00, 8'h23, 8'h54, 8'h3C, 8'h47, 8'h1B};
 //parameter	[47:0]		target_mac = {8'hFF, 8'hFF, 8'hFF, 8'hFF, 8'hFF, 8'hFF};	// Broadcast MAC address
 
-parameter	[31:0]		self_ip = {8'd192, 8'd168, 8'd1, 8'd15};
-parameter	[31:0] 		target_ip = {8'd192, 8'd168, 8'd1, 8'd153};
+//parameter	[31:0]		self_ip = {8'd192, 8'd168, 8'd1, 8'd15};
+//parameter	[31:0] 		target_ip = {8'd192, 8'd168, 8'd1, 8'd153};
+
+parameter	[31:0]		self_ip = {8'd192, 8'd168, 8'd1, 8'd11};
+parameter	[31:0] 		target_ip = {8'd192, 8'd168, 8'd1, 8'd182};
 
 //============================================================================
 

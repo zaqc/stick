@@ -153,7 +153,7 @@ wire							q_ch_rd;
 assign q_ch_rd = ~p_cmpl | q_ch_rd_1 | q_ch_rd_2 | q_ch_rd_3 | q_ch_rd_4;
 
 wire			[9:0]			wr_addr;
-assign wr_addr = ~p_cmpl ? {6'd0, df_param} : 10'h0F + {1'd0, phy_channel, 7'd0} + {3'd0, (2'd3 - q_ch_data[9:8]), q_ch_data[4:0]};
+assign wr_addr = ~p_cmpl ? {6'd0, df_param} : 10'h10 + ({1'd0, phy_channel, 7'd0} + {3'd0, (2'd3 - q_ch_data[9:8]), q_ch_data[4:0]});
 
 wire			[31:0]		wr_data;
 assign wr_data = ~p_cmpl ? p_data : q_ch_data[41:10];
