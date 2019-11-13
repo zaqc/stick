@@ -9,8 +9,8 @@ module ext_sync(
 	output	[31:0]	o_sync_counter
 );
 
-wire			[1:0]			in_dp;
-assign in_dp = {i_ch_a, i_ch_b};
+reg			[1:0]			in_dp;
+always @ (posedge clk) in_dp <= {i_ch_a, i_ch_b};
 
 reg			[1:0]			unjit_dp;
 reg			[15:0]		unjit_cntr;
@@ -46,13 +46,13 @@ always @ (posedge clk or negedge rst_n)
 			4'b1110, 
 			4'b1000, 
 			4'b0001: 
-				tmp_sync_cntr <= tmp_sync_cntr + 32'd1;
+				tmp_sync_cntr <= tmp_sync_cntr - 32'd1;
 			
 			4'b1101,
 			4'b0100,
 			4'b0010,
 			4'b1011:
-				tmp_sync_cntr <= tmp_sync_cntr - 32'd1;
+				tmp_sync_cntr <= tmp_sync_cntr + 32'd1;
 		endcase
 		
 reg			[16:0]		freq_div;
@@ -63,10 +63,10 @@ always @ (posedge clk or negedge rst_n)
 		sync_cntr <= 32'd0;
 	end
 	else
-		if(freq_div < 17'd100000)
+		if(freq_div < 17'd30000)
 			freq_div <= freq_div + 17'd1;
 		else begin
-			sync_cntr <= tmp_sync_cntr;
+			sync_cntr <= tmp_sync_cntr / 4'd13;
 			freq_div <= 17'd0;
 		end
 

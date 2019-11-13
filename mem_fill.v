@@ -24,6 +24,7 @@ module mem_fill(
 	input		[9:0]			i_ch_cntr_4,
 	
 	input		[31:0]		i_sync_counter,
+	input		[31:0]		i_ms_counter,
 
 	input						i_msync_n	// Main Sync
 );
@@ -53,7 +54,7 @@ wire			[31:0]		p_data;
 assign p_data = 
 	df_param == 4'h0 ? i_sync_counter :
 	df_param == 4'h1 ? tick_counter :
-	df_param == 4'h2 ? 32'd0 :
+	df_param == 4'h2 ? i_ms_counter :
 	df_param == 4'h3 ? 32'd0 :
 	df_param == 4'h4 ? 32'd0 :
 	df_param == 4'h5 ? 32'd0 :

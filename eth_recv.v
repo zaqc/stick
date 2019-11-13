@@ -2,42 +2,42 @@ module eth_recv(
 	input						rst_n,
 	input						clk,
 	
-	input		[47:0]		i_self_mac,
-	input		[31:0]		i_self_ip,
+	input		[47:0]			i_self_mac,
+	input		[31:0]			i_self_ip,
 	
-	//input		[47:0]		i_target_mac,
-	input		[31:0]		i_target_ip,
+	//input		[47:0]			i_target_mac,
+	input		[31:0]			i_target_ip,
 	
-	input		[31:0]		i_data,
+	input		[31:0]			i_data,
 	input						i_vld,
-	output					o_rdy,
+	output						o_rdy,
 	input						i_sop,
 	input						i_eop,
 	
-	output	[1:0]			o_arp_operation,		// 01-req 02-resp
-	output	[47:0]		o_arp_target_mac,
-	output	[31:0]		o_arp_target_ip,
+	output		[1:0]			o_arp_operation,		// 01-req 02-resp
+	output		[47:0]			o_arp_target_mac,
+	output		[31:0]			o_arp_target_ip,
 	
-	output					o_cmd_flag,
-	output	[1:0]			o_cmd_phy_channel,
-	output	[31:0]		o_cmd_data,
+	output						o_cmd_flag,
+	output		[1:0]			o_cmd_phy_channel,
+	output		[31:0]			o_cmd_data,
 		
-	output	[3:0]			o_led
+	output		[3:0]			o_led
 );
 
 assign o_rdy = 1'b1;
 
-reg			[8:0]			recv_step;
+reg				[8:0]			recv_step;
 
-reg			[47:0]		dst_mac;
-reg			[47:0]		src_mac;
+reg				[47:0]			dst_mac;
+reg				[47:0]			src_mac;
+	
+reg				[15:0]			pkt_type;
 
-reg			[15:0]		pkt_type;
+parameter		[15:0]			ARP_PKT_TYPE = 16'h0806;
+parameter		[15:0]			IPv4_PKT_TYPE = 16'h0800;
 
-parameter	[15:0]		ARP_PKT_TYPE = 16'h0806;
-parameter	[15:0]		IPv4_PKT_TYPE = 16'h0800;
-
-reg			[15:0]		hdr_dummy;
+reg				[15:0]			hdr_dummy;
 
 always @ (posedge clk or negedge rst_n)
 	if(~rst_n) begin
@@ -81,47 +81,47 @@ end
 //----------------------------------------------------------------------------
 
 
-reg 			[63:0]		arp_header;
-wire			[15:0]		ARP_HTYPE;		// 16'h0001
-wire			[15:0]		ARP_PTYPE;		// 16'h0800
+reg 			[63:0]			arp_header;
+wire			[15:0]			ARP_HTYPE;		// 16'h0001
+wire			[15:0]			ARP_PTYPE;		// 16'h0800
 wire			[7:0]			ARP_HLEN;		// 8'h06;	//	MAC size
 wire			[7:0]			ARP_PLEN;		// 8'h04;	// for IPv4
 
-wire			[15:0]		ARP_OPERATION;	// 16'd01=ACK 16'd02=ANSWER
+wire			[15:0]			ARP_OPERATION;	// 16'd01=ACK 16'd02=ANSWER
 
 assign {ARP_HTYPE, ARP_PTYPE, ARP_HLEN, ARP_PLEN, ARP_OPERATION} = arp_header;
 
 
-reg			[47:0]		SHA;
-reg			[31:0]		SPA;
-reg			[47:0]		THA;
-reg			[31:0]		TPA;
+reg				[47:0]			SHA;
+reg				[31:0]			SPA;
+reg				[47:0]			THA;
+reg				[31:0]			TPA;
 
 //----------------------------------------------------------------------------
 //	IPv4 packet header
 //----------------------------------------------------------------------------
 
-reg			[31:0]		ip_hdr_1;
-reg			[31:0]		ip_hdr_2;
-reg			[31:0]		ip_hdr_3;
+reg				[31:0]			ip_hdr_1;
+reg				[31:0]			ip_hdr_2;
+reg				[31:0]			ip_hdr_3;
 
 wire			[7:0]			ip_protocol;
 assign ip_protocol = ip_hdr_3[23:16];
 
-reg			[31:0]		ip_hdr_src_ip;
-reg			[31:0]		ip_hdr_dst_ip;
+reg				[31:0]			ip_hdr_src_ip;
+reg				[31:0]			ip_hdr_dst_ip;
 
 //----------------------------------------------------------------------------
 //	UDP packet header
 //----------------------------------------------------------------------------
 
-reg			[15:0]		udp_src_port;
-reg			[15:0]		udp_dst_port;
-reg			[15:0]		udp_length;
-reg			[15:0]		udp_crc;
+reg				[15:0]			udp_src_port;
+reg				[15:0]			udp_dst_port;
+reg				[15:0]			udp_length;
+reg				[15:0]			udp_crc;
 
-reg			[1:0]			cmd_phy_channel;
-reg			[31:0]		cmd_data;
+reg				[1:0]			cmd_phy_channel;
+reg				[31:0]			cmd_data;
 
 always @ (posedge clk or negedge rst_n) begin
 	if(~rst_n) begin
@@ -176,7 +176,7 @@ assign o_arp_operation = i_eop && ~prev_eop &&
 						pkt_type == ARP_PKT_TYPE && 
 						//SPA == i_target_ip &&				// answer from target IP
 						//THA == i_self_mac && 				// to my MAC
-						TPA == i_self_ip	 					// and my IP
+						TPA == i_self_ip	 				// and my IP
 												? ARP_OPERATION[1:0] : 2'b0;
 						
 assign o_arp_target_mac = SHA;
